@@ -2,11 +2,6 @@ import pymel.core.datatypes as dt
 import maya.OpenMaya as om
 import maya.cmds as cmds
 
-
-
-
-
-
 def longest_length(vectors):
     max_length = [0,0,0]
     for i in range(len(vectors)-1):
