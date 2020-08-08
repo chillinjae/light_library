@@ -9,7 +9,7 @@ While developing this tool, I've learned something I was not used to.
 
 [v] Creating Area Light with selected face size and snapped
 
-[-] Customized Attribute Editor
+[v] Customized Attribute Editor
 
 [ ] Change Attribute for all selected lights in the Customized Attribute Editor
 
