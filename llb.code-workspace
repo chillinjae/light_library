@@ -1,0 +1,11 @@
+{
+    "folders": [
+		{
+			"path": "../maya_qt_builder"
+		},
+		{
+			"path": "."
+		}
+	],
+    "settings": {}
+}

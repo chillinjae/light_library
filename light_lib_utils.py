@@ -14,23 +14,31 @@ import settings
 reload(settings)
 from settings import light_items
 
-
+def light_selected(list_widget,selected):
+    list_widget.clearSelection()
+    update_light_list(list_widget)
+    if selected:
+        for sel in selected:
+            try:
+                list_widget.findItems(sel.fullPathName(),QtCore.Qt.MatchExactly)[0].setSelected(1)
+            except:
+                pass
 
 def get_scene_lights():
     lights = []
     for light in light_items:
-        lights+=cmds.ls(type=[light])
+        lights+=cmds.ls(type=[light],l=1)
     lights = sorted(list(set(lights)))
     return lights
     
-def set_light(light_type, *args):
+def set_light(light_type, list_widget, *args):
     selection = cmds.ls(sl=1)
     if selection:
         if cmds.objectType(selection[0]) == 'transform':
             [create_light_by_location(light_type, selected, 'transform') for selected in selection]
         elif cmds.objectType(selection[0]) == 'mesh':
             create_light_by_location(light_type, selection, 'mesh')
-    update_light_list(self.light_list_widget)
+    update_light_list(list_widget)
 
 def create_light_by_location(light_type, selected, obj_type):
     cmds.select(selected)

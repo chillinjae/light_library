@@ -14,7 +14,7 @@ from PySide2 import QtWidgets
 from shiboken2 import wrapInstance
 from collections import OrderedDict 
 
-setting_path = 'C:/Users/jaec/PycharmProjects/light_library/light_library'
+setting_path = '/Users/jaeyoungchoi/Workspace/lighting_library'
 sys.path.append(setting_path)
 sys.dont_write_bytecode=True
 
@@ -30,76 +30,49 @@ import FlowLayout
 reload(FlowLayout)
 from FlowLayout import FlowLayout
 
+import ui_elements
+reload(ui_elements)
+from ui_elements import *
+
 
 def maya_main_window():
     main_window_ptr = omui.MQtUtil.mainWindow()
     return wrapInstance(long(main_window_ptr), QtWidgets.QWidget)
 
-class CustomListWidget(QtWidgets.QListWidget):
-    def __init__(self, parent=None):
-        super(CustomListWidget, self).__init__(parent)
-    
-    def update_list_items(self):
-        pass
-    
-    def all_items(self):
-        pass
-    
-    def all_items_by_name(self):
-        pass
-    
-    def delete_item_by_name(self, name):
-        pass
-        
-    def select_item_by_name(self, name):
-        pass
-
-    def get_index_from_name(self, name):
-        pass    
-
-    def selected_items_by_name(self):
-        pass
-        
-    def set_multi_selection(self):
-        self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-
-
 class LightingToolDialog(QtWidgets.QDialog):
     UI_NAME = "LightingTool"
     ui_instance = None
-
+    WINDOW_NAME = "Lighting Editor Extension V.1"
+    WINDOW_SIZE = (600,800)
+    
     def __init__(self, parent=maya_main_window()):
         super(LightingToolDialog, self).__init__(parent)
-        self.WINDOW_NAME = "Lighting Editor Extension V.1"
-
+        self.dialog_setting()
+        
+        self.selected = []
+        self.selected_light_name = ''
+        self.selected_light_type = ''
+        self.scene_lights = get_scene_lights()
+        self.create_widgets()
+        self.create_layout()
+        self.create_connections()
+        self.attrib_changed_event_id = []
+        self.selection_changed_event_id = om.MEventMessage.addEventCallback("SelectionChanged", self.maya_selection_changed)
+    
+    def dialog_setting(self):
         if cmds.window(self.UI_NAME, exists=True):
             cmds.deleteUI(self.UI_NAME, window=True)
         elif cmds.windowPref(self.UI_NAME, exists=True):
             cmds.windowPref(self.UI_NAME, remove=True)
-
         self.setObjectName(self.UI_NAME)
         self.setWindowTitle(self.WINDOW_NAME)
         if cmds.about(ntOS=True):
             self.setWindowFlags(self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint)
         elif cmds.about(macOS=True):
             self.setWindowFlags(QtCore.Qt.Tool)
-
-        self.setFixedWidth(600)
-        self.setMinimumHeight(800)
-        
+        self.setFixedWidth(self.WINDOW_SIZE[0])
+        self.setMinimumHeight(self.WINDOW_SIZE[1])
         cmds.select(d=1)
-        self.selected = []
-        self.selected_light_name = ''
-        self.selected_light_type = ''
-        self.event_id = ''
-        self.scene_lights = get_scene_lights()
-        self.light_attributes_widgets = OrderedDict() 
-        self.light_visibilities_widgets = OrderedDict() 
-        self.light_transforms_widgets = OrderedDict() 
-        self.create_widgets()
-        self.create_layout()
-        self.create_connections()
-        self.selection_changed_callback = om.MEventMessage.addEventCallback("SelectionChanged", self.maya_selection_changed)
         
     def create_widgets(self):    
         self.light_list_widget = QtWidgets.QListWidget()
@@ -107,30 +80,21 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.light_list_widget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.light_list_widget.addItems(self.scene_lights)
         
-        self.light_info_group = QtWidgets.QGroupBox("SELECTION INFO")
         self.light_name = QtWidgets.QLabel("Light Name: %s "%(self.selected_light_name))
         self.light_type = QtWidgets.QLabel("Type: %s"%(self.selected_light_type))
         
         self.light_rename = QtWidgets.QLineEdit()
+        self.btns = [set_icon_btn(key, value.get('icon')) for key, value in light_list.items()]
         
-        self.btns = [self.set_icon_btn(key, value.get('icon')) for key, value in light_list.items()]
+        self.light_attributes_widgets = set_attribs_to_widgets(light_attributes)
+        self.light_visibilities_widgets = set_attribs_to_widgets(light_visibilities)
+        self.light_transforms_widgets = set_attribs_to_widgets(light_transforms)
         
-        self.attrib_group = QtWidgets.QGroupBox('ATTRIBUTES')
-        for attrib_name, value in light_attributes.items():
-            self.light_attributes_widgets.update({attrib_name : self.widget_checker(value.get('name'),value)})
-        
-        self.visibility_group = QtWidgets.QGroupBox('VISIBILITY')
-        for attrib_name, value in light_visibilities.items():
-            self.light_visibilities_widgets.update({attrib_name: self.widget_checker(value.get('name'),value)})        
-
-        self.transform_group = QtWidgets.QGroupBox('TRANSFORM')
-        for attrib_name, value in light_transforms.items():
-            self.light_transforms_widgets.update({attrib_name: self.widget_checker(value.get('name'),value)})        
-
     def create_layout(self):
         widget = QtWidgets.QWidget()
         widget.setFocusPolicy(QtCore.Qt.NoFocus)
         
+        self.light_info_group = QtWidgets.QGroupBox("SELECTION INFO")
         self.light_info_layout = QtWidgets.QVBoxLayout()
         self.light_info_layout.addWidget(self.light_name)
         self.light_info_layout.addWidget(self.light_type)
@@ -139,27 +103,11 @@ class LightingToolDialog(QtWidgets.QDialog):
         btnLayout01 = FlowLayout()
         map(btnLayout01.addWidget, self.btns)
 
-        self.attrib_layout = QtWidgets.QVBoxLayout()
-        for attrib_name, values in self.light_attributes_widgets.items():
-            if values:
-                self.attrib_layout.addWidget(values.get('layout'))
-        self.attrib_group.setLayout(self.attrib_layout)
-        self.attrib_layout.setSpacing(2);
-
-        self.vis_layout = QtWidgets.QVBoxLayout()    
-        for attrib_name, values in self.light_visibilities_widgets.items():
-            if values:
-                self.vis_layout.addWidget(values.get('layout'))
-        self.visibility_group.setLayout(self.vis_layout)
+        self.attrib_group = set_widgets_to_group(self.light_attributes_widgets,group_name = 'ATTRIBUTES')
+        self.visibility_group = set_widgets_to_group(self.light_visibilities_widgets, group_name = 'VISIBILITY')
+        self.transform_group = set_widgets_to_group(self.light_transforms_widgets, group_name = 'TRANSFORM')
         
-        self.transform_layout = QtWidgets.QVBoxLayout()    
-        for attrib_name, values in self.light_transforms_widgets.items():
-            if values:
-                self.transform_layout.addWidget(values.get('layout'))
-        self.transform_group.setLayout(self.transform_layout)
-
         layout = QtWidgets.QVBoxLayout()
-        
         layout.addWidget(self.attrib_group)
         layout.addWidget(self.visibility_group)
         layout.addWidget(self.transform_group)
@@ -191,9 +139,42 @@ class LightingToolDialog(QtWidgets.QDialog):
         
     def create_connections(self):
         self.light_list_widget.itemSelectionChanged.connect(lambda : select_light(self.light_list_widget))
-        [btn.clicked.connect(partial(set_light,light_type = light_list[btn.text()].get('type'))) for btn in self.btns]
+        [btn.clicked.connect(partial(set_light,light_type = light_list[btn.text()].get('type'),list_widget = self.light_list_widget)) for btn in self.btns]
     
+    def maya_selection_changed(self,*args, **kwargs):
+        try:
+            sel = om.MSelectionList()
+            om.MGlobal.getActiveSelectionList(sel)
+            selection_iter = om.MItSelectionList(sel)
+            obj = om.MObject()
+            self.attrib_changed_event_id = self.set_attribute_changed_callback(obj)
+            self.selected = []
+            while not selection_iter.isDone():
+                selection_iter.getDependNode(obj)
+                dagPath = om.MDagPath.getAPathTo(obj)
+                self.selected.append(dagPath)
+                selection_iter.next()
+            if selection_iter.isDone():
+                update_light_list(self.light_list_widget)
+                if self.selected:
+                    self.attrib_setter_selected(self.selected)
+                else:
+                    self.attrib_setter_not_selected()
+        except RuntimeError, err:
+            print err    
         
+    def set_attribute_changed_callback(self, obj):
+        if self.attrib_changed_event_id:
+            om.MMessage.removeCallback(self.attrib_changed_event_id)
+        return om.MNodeMessage.addAttributeChangedCallback(obj, self.maya_attrib_changed)
+
+    def maya_attrib_changed(self, *args, **kwargs):
+        try:
+            changed_attrib = args[1]
+            self.attrib_update(changed_attrib)
+        except RuntimeError, err:
+            print err
+            
     def attrib_setter_selected(self,selection,*args):
         selected = selection[-1]
         selected_full_name = selected.fullPathName()
@@ -211,9 +192,8 @@ class LightingToolDialog(QtWidgets.QDialog):
             self.widget_setter(self.light_attributes_widgets)
             self.widget_setter(self.light_visibilities_widgets)
             self.widget_setter(self.light_transforms_widgets)
-            self.light_selected()
+            light_selected(self.light_list_widget, self.selected)
 
-                
     def attrib_setter_not_selected(self,*args):    
         self.selected_light_name = ''
         self.selected_light_type = ''
@@ -222,7 +202,7 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.widget_setter(self.light_attributes_widgets)
         self.widget_setter(self.light_visibilities_widgets)
         self.widget_setter(self.light_transforms_widgets)
-        self.light_selected()
+        light_selected(self.light_list_widget, self.selected)
     
     def widget_setter(self,widgets_dict):
         for attrib, widgets in widgets_dict.items():
@@ -270,62 +250,15 @@ class LightingToolDialog(QtWidgets.QDialog):
         if changed_attrib:
             if changed_attrib.name().split('.')[1] in light_attributes.keys():
                 print changed_attrib.name()
-        
-    def light_selected(self):
-        self.light_list_widget.clearSelection()
-        update_light_list(self.light_list_widget)
-        if self.selected:
-            for selected in self.selected:
-                try:
-                    self.light_list_widget.findItems(selected.partialPathName(),QtCore.Qt.MatchExactly)[0].setSelected(1)
-                except:
-                    pass
-        
-        
-    def maya_selection_changed(self,*args, **kwargs):
-        try:
-            sel = om.MSelectionList()
-            om.MGlobal.getActiveSelectionList(sel)
-            selection_iter = om.MItSelectionList(sel)
-            obj = om.MObject()
 
-            if self.event_id:
-                om.MMessage.removeCallback(self.event_id)
-            self.event_id = om.MNodeMessage.addAttributeChangedCallback(obj, self.maya_attrib_changed)
-
-            self.selected = []
-            while not selection_iter.isDone():
-                selection_iter.getDependNode(obj)
-                dagPath = om.MDagPath.getAPathTo(obj)
-                self.selected.append(dagPath)
-                selection_iter.next()
-            if selection_iter.isDone():
-                update_light_list(self.light_list_widget)
-                if self.selected:
-                    self.attrib_setter_selected(self.selected)
-                else:
-                    self.attrib_setter_not_selected()
-        except RuntimeError, err:
-            print err    
-        
-    def maya_attrib_changed(self, *args, **kwargs):
-        try:
-            changed_attrib = args[1]
-            self.attrib_update(changed_attrib)
-        except RuntimeError, err:
-            print err
-            
-        
     def closeEvent(self, event):    
         try:
-            om.MMessage.removeCallback(self.selection_changed_callback)
-            om.MMessage.removeCallback(self.event_id)
+            om.MMessage.removeCallback(self.selection_changed_event_id)
+            om.MMessage.removeCallback(self.attrib_changed_event_id)
             print 'closed'
         except:
             pass
             
-
-
 
 def main():
     try:

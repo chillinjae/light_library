@@ -1,20 +1,26 @@
-def widget_checker(self,attrib_name, value):
+from PySide2 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+from collections import OrderedDict 
+
+
+def widget_checker(attrib_name, value):
     if value.get('type') == 'rgb_slider':
         pass
     elif value.get('type') =='float_slider':
-        return self.slider_widget(attrib_name,value)
+        return slider_widget(attrib_name,value)
     elif value.get('type') =='int_slider':
-        return self.slider_widget(attrib_name,value)
+        return slider_widget(attrib_name,value)
     elif value.get('type') =='checkbox':
-        return self.checkbox_widget(attrib_name,value)
+        return checkbox_widget(attrib_name,value)
     elif value.get('type') =='combobox':
-        return self.combobox_widget(attrib_name,value)
+        return combobox_widget(attrib_name,value)
     elif value.get('type') =='lineedit':
-        return self.lineedit_widget(attrib_name,value)
+        return lineedit_widget(attrib_name,value)
     elif value.get('type') =='lineedit_vector':
-        return self.lineedit_vector_widget(attrib_name,value)        
+        return lineedit_vector_widget(attrib_name,value)        
 
-def slider_widget(self,attrib_name='' ,value=''):
+def slider_widget(attrib_name ,value):
     attrib_label = QtWidgets.QLabel(attrib_name+":")
     attrib_value = QtWidgets.QLineEdit()
     attrib_value.setFixedWidth(80)
@@ -34,7 +40,7 @@ def slider_widget(self,attrib_name='' ,value=''):
     attrib_frame.setStyleSheet("background-color:rgb(80,80,80);border-radius:3px;")
     return {'layout':attrib_frame, 'label':attrib_name, 'widget' : [attrib_value, attrib_slider],'label_widget': [attrib_label], 'info':value, 'type': 'slider'}
         
-def combobox_widget(self, attrib_name='', value=''):
+def combobox_widget(attrib_name, value):
     attrib_label = QtWidgets.QLabel(attrib_name+":")
     attrib_combobox = QtWidgets.QComboBox()
     attrib_combobox.addItems(value.get('items'))
@@ -50,7 +56,7 @@ def combobox_widget(self, attrib_name='', value=''):
     attrib_frame.setStyleSheet("background-color:rgb(80,80,80);border-radius:3px;")
     return {'layout':attrib_frame, 'label':attrib_name, 'widget' : [attrib_combobox],'label_widget': [attrib_label], 'type': 'combobox', 'info':value}
 
-def checkbox_widget (self, attrib_name='', num_of_cb = 1, cb_list = []):
+def checkbox_widget (attrib_name,value, num_of_cb = 1, cb_list = []):
     attrib_checkbox = QtWidgets.QCheckBox(attrib_name)
     attrib_block = QtWidgets.QHBoxLayout()
     attrib_block.addSpacing(35)
@@ -58,9 +64,9 @@ def checkbox_widget (self, attrib_name='', num_of_cb = 1, cb_list = []):
     attrib_block.addStretch()
     attrib_frame = QtWidgets.QFrame()
     attrib_frame.setLayout(attrib_block)
-    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_checkbox], 'label_widget': [], 'type': 'checkbox'}
+    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_checkbox], 'label_widget': [], 'type': 'checkbox', 'info':value}
 
-def lineedit_widget (self, attrib_name='',value=''):
+def lineedit_widget (attrib_name,value):
     attrib_label = QtWidgets.QLabel(attrib_name+":")
     attrib_lineedit = QtWidgets.QLineEdit()
     attrib_lineedit.setStyleSheet("background-color:rgb(40,40,40)")
@@ -72,9 +78,9 @@ def lineedit_widget (self, attrib_name='',value=''):
     attrib_frame = QtWidgets.QFrame()
     attrib_frame.setLayout(attrib_block)
     attrib_frame.setStyleSheet("background-color:rgb(80,80,80);border-radius:3px;padding:0px;margin:0px;border:0px;")
-    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_lineedit], 'label_widget': [attrib_label], 'type': 'lineedit'}
+    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_lineedit], 'label_widget': [attrib_label], 'type': 'lineedit', 'info':value}
 
-def lineedit_vector_widget (self, attrib_name='',value=''):
+def lineedit_vector_widget (attrib_name,value):
     attrib_label = QtWidgets.QLabel(attrib_name+":")
     attrib_lineedit_x = QtWidgets.QLineEdit()
     attrib_lineedit_x.setStyleSheet("background-color:rgb(40,40,40)")
@@ -92,10 +98,10 @@ def lineedit_vector_widget (self, attrib_name='',value=''):
     attrib_frame = QtWidgets.QFrame()
     attrib_frame.setLayout(attrib_block)
     attrib_frame.setStyleSheet("background-color:rgb(80,80,80);border-radius:3px;padding:0px;margin:0px;border:0px;")
-    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_lineedit_x,attrib_lineedit_y,attrib_lineedit_z], 'label_widget': [attrib_label], 'type': 'lineedit_vector'}
+    return {'layout':attrib_frame,'label': attrib_name, 'widget' : [attrib_lineedit_x,attrib_lineedit_y,attrib_lineedit_z], 'label_widget': [attrib_label], 'type': 'lineedit_vector', 'info':value}
 
 
-def set_icon_btn(self, label, icon=':/ambientlight.png'):
+def set_icon_btn(label, icon=':/ambientlight.png'):
     btn = QtWidgets.QToolButton()
     iconBtnMinSize = QtCore.QSize(200, 200)
     iconBtnSize = QtCore.QSize(200, 200)
@@ -107,3 +113,49 @@ def set_icon_btn(self, label, icon=':/ambientlight.png'):
     btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
     btn.setFocusPolicy(QtCore.Qt.NoFocus)
     return btn
+    
+def set_attribs_to_widgets(attribs):
+    widgets = OrderedDict()
+    for attrib_name, value in attribs.items():
+        widgets.update({attrib_name : widget_checker(value.get('name'),value)})
+    return widgets
+    
+def set_widgets_to_group(widgets, group_name):
+    group = QtWidgets.QGroupBox(group_name)
+    layout = QtWidgets.QVBoxLayout()
+    for attrib_name, values in widgets.items():
+        if values:
+            layout.addWidget(values.get('layout'))
+    group.setLayout(layout)
+    layout.setSpacing(2);
+    return group
+    
+    
+
+class CustomListWidget(QtWidgets.QListWidget):
+    def __init__(self, parent=None):
+        super(CustomListWidget, self).__init__(parent)
+    
+    def update_list_items(self):
+        pass
+    
+    def all_items(self):
+        pass
+    
+    def all_items_by_name(self):
+        pass
+    
+    def delete_item_by_name(self, name):
+        pass
+        
+    def select_item_by_name(self, name):
+        pass
+
+    def get_index_from_name(self, name):
+        pass    
+
+    def selected_items_by_name(self):
+        pass
+        
+    def set_multi_selection(self):
+        self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
