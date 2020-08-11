@@ -45,6 +45,7 @@ class LightingToolDialog(QtWidgets.QDialog):
     WINDOW_NAME = "Lighting Editor Extension V.1"
     WINDOW_SIZE = (600,800)
     
+
     def __init__(self, parent=maya_main_window()):
         super(LightingToolDialog, self).__init__(parent)
         self.dialog_setting()
@@ -59,6 +60,7 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.attrib_changed_event_id = []
         self.selection_changed_event_id = om.MEventMessage.addEventCallback("SelectionChanged", self.maya_selection_changed)
     
+
     def dialog_setting(self):
         if cmds.window(self.UI_NAME, exists=True):
             cmds.deleteUI(self.UI_NAME, window=True)
@@ -74,6 +76,7 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.setMinimumHeight(self.WINDOW_SIZE[1])
         cmds.select(d=1)
         
+
     def create_widgets(self):    
         self.light_list_widget = QtWidgets.QListWidget()
         self.light_list_widget.setFixedHeight(150)
@@ -89,7 +92,8 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.light_attributes_widgets = set_attribs_to_widgets(light_attributes)
         self.light_visibilities_widgets = set_attribs_to_widgets(light_visibilities)
         self.light_transforms_widgets = set_attribs_to_widgets(light_transforms)
-        
+
+
     def create_layout(self):
         widget = QtWidgets.QWidget()
         widget.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -137,9 +141,11 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.visibility_group.resize(520,35*num_of_vis_widgets)
         self.transform_group.resize(520,35*num_of_trans_widgets)
         
+        
     def create_connections(self):
         self.light_list_widget.itemSelectionChanged.connect(lambda : select_light(self.light_list_widget))
         [btn.clicked.connect(partial(set_light,light_type = light_list[btn.text()].get('type'),list_widget = self.light_list_widget)) for btn in self.btns]
+    
     
     def maya_selection_changed(self,*args, **kwargs):
         try:
@@ -163,10 +169,12 @@ class LightingToolDialog(QtWidgets.QDialog):
         except RuntimeError, err:
             print err    
         
+        
     def set_attribute_changed_callback(self, obj):
         if self.attrib_changed_event_id:
             om.MMessage.removeCallback(self.attrib_changed_event_id)
         return om.MNodeMessage.addAttributeChangedCallback(obj, self.maya_attrib_changed)
+
 
     def maya_attrib_changed(self, *args, **kwargs):
         try:
@@ -174,6 +182,7 @@ class LightingToolDialog(QtWidgets.QDialog):
             self.attrib_update(changed_attrib)
         except RuntimeError, err:
             print err
+            
             
     def attrib_setter_selected(self,selection,*args):
         selected = selection[-1]
@@ -204,48 +213,70 @@ class LightingToolDialog(QtWidgets.QDialog):
         self.widget_setter(self.light_transforms_widgets)
         light_selected(self.light_list_widget, self.selected)
     
+    def get_transform_and_shape(self):
+        if cmds.objectType(self.selected_light_name) != 'transform':
+            shape_name = self.selected_light_name
+            transform_name = cmds.listRelatives(shape_name, parent=True, fullPath=True)[0]
+        else:
+            transform_name = self.selected_light_name
+            shape_name = cmds.listRelatives(shape_name, shapes=True, fullPath=True)[0]
+        return transform_name, shape_name
+        
     def widget_setter(self,widgets_dict):
         for attrib, widgets in widgets_dict.items():
             if widgets:
                 try:
-                    if widgets_dict == self.light_transforms_widgets:
-                        self.selected_light_name = self.selected_light_name if self.selected_light_name else cmds.ls(sl=1)[0]
-                        if cmds.objectType(self.selected_light_name) != 'transform':
-                            attrib_transform = cmds.listRelatives(self.selected_light_name, parent=True, fullPath=True)[0]
-                        else:
-                            attrib_transform = self.selected_light_name
-                        attrib_value = cmds.getAttr('%s.%s'%(attrib_transform,attrib))    
-                    else:
-                        attrib_value = cmds.getAttr('%s.%s'%(self.selected_light_name,attrib))
-                    attrib_value = round(attrib_value,3) if isinstance(attrib_value, float) else attrib_value
-                    attrib_widgets = [widgets.get('widget'),widgets.get('label_widget')]
-                    for attrib_widget in attrib_widgets[0]:
-                        try:
-                            attrib_widget.setChecked(attrib_value)
-                            attrib_widget.setHidden(0)
-                            attrib_widgets[1][0].setHidden(0)
-                            continue
-                        except:
-                            pass
-                        try:
-                            attrib_widget.setValue(attrib_value)
-                            attrib_widget.setHidden(0)
-                            attrib_widgets[1][0].setHidden(0)
-                            continue
-                        except:
-                            pass
-                        try:
-                            attrib_widget.maxLength()
-                            attrib_widget.setText(str(attrib_value))
-                            attrib_widget.setHidden(0)
-                            attrib_widgets[1][0].setHidden(0)
-                            continue
-                        except:
-                            pass
-                    
+                    transform_node, shape_node = self.get_transform_and_shape()
+                    if widgets.get('info').get('node') is 'shape':
+                        if widgets.get('type') is 'checkbox':
+                            self.checkbox_setter(attrib,widgets,shape_node)
+                        elif widgets.get('type') is 'combobox':
+                            self.combobox_setter(attrib,widgets,shape_node)
+                        elif widgets.get('type') is 'lineedit':
+                            self.lineedit_setter(attrib,widgets,shape_node)
+                        elif widgets.get('type') is 'lineedit_vector':
+                            self.lineedit_vector_setter(attrib,widgets,shape_node)
+                        elif widgets.get('type') is 'slider':
+                            self.slider_setter(attrib,widgets,shape_node)
+                    elif widgets.get('info').get('node') is 'transform':
+                        self.lineedit_vector_setter(attrib,widgets,transform_node)                        
                 except:
                     pass
+            else:
+                print self.selected_light_name, attrib, widgets
+    
+    
+    def checkbox_setter(self,attrib,widgets,shape_node):
+        checkbox_widget = widgets.get('widget')[0]
+        value = cmds.getAttr('%s.%s'%(shape_node, attrib))
+        checkbox_widget.setChecked(value)
+    
+    def combobox_setter(self,attrib,widgets,shape_node):
+        print attrib, widgets, shape_node
+        combobox_widget = widgets.get('widget')[0]
+        value = cmds.getAttr('%s.%s'%(shape_node, attrib))
+        combobox_widget.setCurrentIndex(value)
+        
+    def lineedit_setter(self,attrib,widgets,shape_node):
+        lineedit_widget = widgets.get('widget')[0]
+        value = cmds.getAttr('%s.%s'%(shape_node, attrib))
+        lineedit_widget.setText(str(value))
+        
+    def lineedit_vector_setter(self,attrib,widgets,transform_node):
+        lineedit_widgets = widgets.get('widget')
+        value = cmds.getAttr('%s.%s'%(transform_node, attrib))[0]
+        lineedit_widgets[0].setText(str(value[0]))
+        lineedit_widgets[1].setText(str(value[1]))
+        lineedit_widgets[2].setText(str(value[2]))
+    
+    def slider_setter(self,attrib,widgets,shape_node):
+        lineedit_widget = widgets.get('widget')[0]
+        slider_widget = widgets.get('widget')[1]
+        value = cmds.getAttr('%s.%s'%(shape_node, attrib))
+        lineedit_widget.setText(str(value))
+        slider_widget.setValue(value*widgets.get('info').get('scale'))
 
+    
     def attrib_update(self,changed_attrib):
         if changed_attrib:
             if changed_attrib.name().split('.')[1] in light_attributes.keys():
@@ -275,4 +306,4 @@ if __name__ == "__main__":
     main()
 
 
-
+    

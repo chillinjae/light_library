@@ -38,7 +38,10 @@ def set_light(light_type, list_widget, *args):
             [create_light_by_location(light_type, selected, 'transform') for selected in selection]
         elif cmds.objectType(selection[0]) == 'mesh':
             create_light_by_location(light_type, selection, 'mesh')
+    else:
+        create_light(light_type)
     update_light_list(list_widget)
+
 
 def create_light_by_location(light_type, selected, obj_type):
     cmds.select(selected)
@@ -113,7 +116,7 @@ def create_light(light_type):
     elif light_type == 'point':
         cmds.pointLight()
     elif light_type == 'direct':
-        return 0 
+        cmds.directionalLight()
 
 def select_light(list_widget):
     cmds.select([selected.text() for selected in list_widget.selectedItems()])
